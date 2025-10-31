@@ -32,7 +32,7 @@ terraform.rc
 # OS-specific files
 .DS_Store
 Thumbs.db
-
+*.lock.hcl
 # Terraform lock file (optional, but usually keep it)
 # Uncomment if you don’t want to track lock file
 # .terraform.lock.hcl
