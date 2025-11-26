@@ -81,7 +81,7 @@ module "asg" {
     db_endpoint = module.rds.db_instance_endpoint
     db_user     = var.db_username
     db_password = var.db_password
-    db_name     = var.db_name
+    db_table_name     = var.db_table_name
   })
   backend_target_group_arn = module.alb.backend_target_group_arn
 }

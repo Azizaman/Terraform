@@ -146,3 +146,8 @@ variable "backend_user_data" {
     description = "User data script for backend instances"
     default = ""
 }
+
+variable "db_table_name" {
+    type = string
+    description = "Name of the database table"
+}
