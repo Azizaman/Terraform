@@ -151,3 +151,48 @@ variable "db_table_name" {
     type = string
     description = "Name of the database table"
 }
+
+variable "domain_name" {
+    type = string
+    description = "Domain name for the application"
+}
+variable "hosted_zone_id" {
+    type = string
+    description = "Hosted zone ID for the domain"
+}
+variable "certificate_arn" {
+    type = string
+    description = "The ARN of the certificate"
+}
+variable "iam_role_name" {
+    type = string
+    description = "Name of the IAM role"
+}
+variable "instance_profile_name" {
+    type = string
+    description = "Name of the instance profile"
+}
+variable "s3_access_role_name" {
+    type = string
+    description = "Name of the S3 access role"
+}
+variable "s3_access_instance_profile_name" {
+    type = string
+    description = "Name of the S3 access instance profile"
+}
+variable "lambda_s3_ec2_access_role_name" {
+    type = string
+    description = "Name of the lambda s3 ec2 access role"
+}
+variable "lambda_s3_ec2_access_instance_profile_name" {
+    type = string
+    description = "Name of the lambda s3 ec2 access instance profile"
+}
+variable "log_archive_bucket_arn" {
+    type = string
+    description = "The ARN of the log archive bucket"
+}
+variable "project_name" {
+    type = string
+    description = "The name of the project"
+}

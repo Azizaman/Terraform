@@ -52,4 +52,8 @@ variable "backend_alb_name" {
     type = string
     description = "name of the backend alb"
 }
+variable "certificate_arn" {
+    type = string
+    description = "The ARN of the certificate"
+}
 

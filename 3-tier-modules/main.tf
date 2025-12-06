@@ -55,6 +55,7 @@ module "alb" {
   backend_tg_name     = var.backend_tg_name
   backend_tg_port     = var.backend_tg_port
   backend_alb_name    = var.backend_alb_name
+  certificate_arn = var.certificate_arn
   
 }
 
@@ -69,7 +70,7 @@ module "asg" {
   frontend_sg_id          = module.security.frontend_sg_id
   frontend_subnet_ids     = module.network.frontend_private_subnet_ids
   frontend_user_data      = templatefile(var.frontend_user_data, {
-    backend_url = "http://${module.alb.backend_alb_dns_name}/api"
+    backend_url = "https://api.${var.domain_name}/api"
   })
   frontend_target_group_arn = module.alb.frontend_target_group_arn
 
@@ -84,4 +85,43 @@ module "asg" {
     db_table_name     = var.db_table_name
   })
   backend_target_group_arn = module.alb.backend_target_group_arn
+  iam_instance_profile_name = module.iam.instance_profile_name
 }
+
+module "route53" {
+  source               = "./Root-modules/route53"
+
+  hosted_zone_id       = var.hosted_zone_id
+  domain_name          = var.domain_name
+  
+  backend_alb_dns      = module.alb.backend_alb_dns_name
+  backend_alb_zone_id  = module.alb.backend_alb_zone_id
+  
+  frontend_alb_dns     = module.alb.frontend_alb_dns_name
+  frontend_alb_zone_id = module.alb.frontend_alb_zone_id
+}
+
+module "s3" {
+  source = "./Root-modules/s3"
+
+  project_name = var.project_name
+  
+
+  
+}
+
+module "iam" {
+  source = "./Root-modules/iam"
+
+  iam_role_name = var.iam_role_name
+  # instance_profile_name = var.instance_profile_name
+  s3_access_role_name = var.s3_access_role_name
+  s3_access_instance_profile_name = var.s3_access_instance_profile_name
+  lambda_s3_ec2_access_role_name = var.lambda_s3_ec2_access_role_name
+  lambda_s3_ec2_access_instance_profile_name=var.lambda_s3_ec2_access_instance_profile_name
+  log_archive_bucket_arn = module.s3.log_archive_bucket_arn
+  
+
+}
+
+

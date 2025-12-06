@@ -30,8 +30,9 @@ resource "aws_lb" "frontend-alb" {
 #listener for frontend alb
 resource "aws_lb_listener" "front_end_http" {
   load_balancer_arn = aws_lb.frontend-alb.arn
-  port              = 80
-  protocol          = "HTTP"
+  port              = 443
+  protocol          = "HTTPS"
+  certificate_arn = var.certificate_arn
 
   default_action {
     type             = "forward"
@@ -88,8 +89,11 @@ resource "aws_lb" "backend-alb" {
 
 resource "aws_lb_listener" "backend_http" {
   load_balancer_arn = aws_lb.backend-alb.arn
-  port              = 80
-  protocol          = "HTTP"
+  port              = 443
+  protocol          = "HTTPS"
+  certificate_arn = var.certificate_arn
+
+  
 
   default_action {
     type             = "forward"

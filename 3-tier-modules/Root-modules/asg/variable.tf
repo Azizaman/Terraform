@@ -71,3 +71,7 @@ variable "backend_target_group_arn" {
   description = "ARN of the backend target group"
   default     = ""
 }
+variable "iam_instance_profile_name" {
+  type        = string
+  description = "Name of the IAM instance profile"
+}

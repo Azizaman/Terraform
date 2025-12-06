@@ -11,6 +11,9 @@ resource "aws_launch_template" "frontend_lt" {
   }
 
   user_data = base64encode(var.frontend_user_data)
+  iam_instance_profile {
+  name = var.iam_instance_profile_name
+}
 
   tag_specifications {
     resource_type = "instance"
@@ -55,6 +58,9 @@ resource "aws_launch_template" "backend_lt" {
   }
 
   user_data = base64encode(var.backend_user_data)
+  iam_instance_profile {
+  name = var.iam_instance_profile_name
+}
 
   tag_specifications {
     resource_type = "instance"

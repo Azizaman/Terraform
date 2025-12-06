@@ -7,38 +7,35 @@ echo "================================"
 echo "Starting backend setup at $(date)"
 echo "================================"
 
-# -------------------------------
-# 1. CONFIGURE DB VARIABLES
-# -------------------------------
-# DB_ENDPOINT="project.c8dg28qmmlpa.us-east-1.rds.amazonaws.com"
-# DB_USER="aman"
-# DB_PASSWORD="azizaman"
-# DB_NAME="react_node_app"
 
-
+# -------------------------------
+# 1. DB VARIABLES FROM TERRAFORM
+# -------------------------------
 DB_ENDPOINT="${db_endpoint}"
 DB_USER="${db_user}"
 DB_PASSWORD="${db_password}"
 DB_TABLE_NAME="${db_table_name}"
 
 
-
 # -------------------------------
 # 2. Install Dependencies
 # -------------------------------
 yum update -y
-yum install -y git nodejs mariadb105 
-yum install httpd -y
+yum install -y git mariadb105 httpd amazon-cloudwatch-agent
+dnf install -y nodejs
+npm install -g pm2
 
 systemctl enable httpd
 systemctl start httpd
 
-npm install -g pm2
 
 # -------------------------------
-# 3. Clone repo
+# 3. Clone Repository
 # -------------------------------
-su - ec2-user -c "git clone https://github.com/Azizaman/fullstack-authors-books-application.git"
+cd /home/ec2-user
+git clone https://github.com/Azizaman/fullstack-authors-books-application.git
+chown -R ec2-user:ec2-user /home/ec2-user/fullstack-authors-books-application
+
 
 # -------------------------------
 # 4. Create DB config
@@ -55,14 +52,15 @@ const db = mysql.createConnection({
 module.exports = db;
 EOF
 
-chown ec2-user:ec2-user /home/ec2-user/fullstack-authors-books-application/backend/configs/db.js
 
 # -------------------------------
 # 5. ENV file
 # -------------------------------
-echo "PORT=3000" > /home/ec2-user/fullstack-authors-books-application/backend/.env
-echo "HOST=0.0.0.0" >> /home/ec2-user/fullstack-authors-books-application/backend/.env
-chown ec2-user:ec2-user /home/ec2-user/fullstack-authors-books-application/backend/.env
+cat > /home/ec2-user/fullstack-authors-books-application/backend/.env <<EOF
+PORT=3000
+HOST=0.0.0.0
+EOF
+
 
 # -------------------------------
 # 6. Patch server.js
@@ -70,14 +68,15 @@ chown ec2-user:ec2-user /home/ec2-user/fullstack-authors-books-application/backe
 sed -i '1i require("dotenv").config();' /home/ec2-user/fullstack-authors-books-application/backend/server.js
 
 sed -i "/app.use(express.json());/a\
-// Health Check\napp.get('/health', (req, res) => {\n  res.status(200).json({ status: 'healthy' });\n});" /home/ec2-user/fullstack-authors-books-application/backend/server.js
+// Health Check\napp.get('/health', (req, res) => {\n  res.status(200).json({ status: 'healthy' });\n});" \
+  /home/ec2-user/fullstack-authors-books-application/backend/server.js
 
 sed -i "s|app.use('/books'|app.use('/api/books'|g" /home/ec2-user/fullstack-authors-books-application/backend/server.js
 sed -i "s|app.use('/authors'|app.use('/api/authors'|g" /home/ec2-user/fullstack-authors-books-application/backend/server.js
 
 
 # -------------------------------
-# 7. RESET DATABASE COMPLETELY
+# 7. RESET DATABASE
 # -------------------------------
 echo "Dropping existing tables..."
 mysql -h "$DB_ENDPOINT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_TABLE_NAME" <<EOSQL
@@ -87,44 +86,58 @@ DROP TABLE IF EXISTS author;
 SET FOREIGN_KEY_CHECKS = 1;
 EOSQL
 
-echo "Tables dropped."
-
-# -------------------------------
-# 8. Recreate database schema
-# -------------------------------
-echo "Initializing fresh database..."
-mysql -h "$DB_ENDPOINT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_TABLE_NAME" < /home/ec2-user/fullstack-authors-books-application/backend/db.sql
-echo "Database initialized."
-
-# Verify
-AUTHOR_COUNT=$(mysql -h "$DB_ENDPOINT" -u "$DB_USER" -p"$DB_PASSWORD" -D "$DB_TABLE_NAME" -N -e "SELECT COUNT(*) FROM author;")
-BOOK_COUNT=$(mysql -h "$DB_ENDPOINT" -u "$DB_USER" -p"$DB_PASSWORD" -D "$DB_TABLE_NAME" -N -e "SELECT COUNT(*) FROM book;")
-echo "Database now has $AUTHOR_COUNT authors and $BOOK_COUNT books"
+# Initialize DB
+mysql -h "$DB_ENDPOINT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_TABLE_NAME" \
+  < /home/ec2-user/fullstack-authors-books-application/backend/db.sql
 
 
 # -------------------------------
-# 9. Install & start backend
+# 8. Install & Start Backend
 # -------------------------------
-su - ec2-user -c "cd fullstack-authors-books-application/backend && npm install"
-su - ec2-user -c "cd fullstack-authors-books-application/backend && npm install dotenv"
-
+su - ec2-user -c "cd fullstack-authors-books-application/backend && npm install && npm install dotenv"
 su - ec2-user -c "cd fullstack-authors-books-application/backend && pm2 start server.js --name 'backend-api'"
-
-# Auto-start on reboot
-env PATH=$PATH:/usr/bin /usr/bin/pm2 startup systemd -u ec2-user --hp /home/ec2-user
 su - ec2-user -c "pm2 save"
 
+# Auto-start PM2 on reboot
+env PATH=$PATH:/usr/bin /usr/bin/pm2 startup systemd -u ec2-user --hp /home/ec2-user
+
+
 # -------------------------------
-# 10. Verify backend is running
+# 9. Configure CloudWatch (AFTER PM2 STARTS)
 # -------------------------------
-sleep 10
-if curl -f http://localhost:3000/health; then
-    echo "Backend is running successfully!"
-else
-    echo "WARNING: Backend health check failed!"
-    su - ec2-user -c "pm2 logs backend-api --lines 50"
-fi
+cat <<EOF > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+{
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/home/ec2-user/.pm2/logs/backend-api-out.log",
+            "log_group_name": "/backend/app",
+            "log_stream_name": "{instance_id}-out"
+          },
+          {
+            "file_path": "/home/ec2-user/.pm2/logs/backend-api-error.log",
+            "log_group_name": "/backend/app",
+            "log_stream_name": "{instance_id}-error"
+          }
+        ]
+      }
+    }
+  }
+}
+EOF
+
+systemctl enable amazon-cloudwatch-agent
+systemctl restart amazon-cloudwatch-agent
+
+
+# -------------------------------
+# 10. Verify Backend
+# -------------------------------
+sleep 5
+curl -f http://localhost:3000/health && echo "Backend Healthy!"
 
 echo "================================"
-echo "Backend setup completed at $(date)"
+echo "Backend setup completed!"
 echo "================================"
